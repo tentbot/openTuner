@@ -1,3 +1,6 @@
+const FREQUENCY_BINS = 16384;
+const OCTAVE_ERROR_TOLERANCE = 0.15;
+
 let input, filter, fft, nyquist;
 
 let stringFrequencies = [0, 82.41, 110.00, 146.83, 196.00, 246.94, 329.63];
@@ -7,7 +10,7 @@ function setup() {
     input = new p5.AudioIn();
     input.start();
 
-    fft = new p5.FFT(0.8,16384);
+    fft = new p5.FFT(0.8,FREQUENCY_BINS);
     fft.setInput(input);
 
     nyquist = sampleRate() / 2;
@@ -39,7 +42,7 @@ function draw() {
     endShape();
 
     // Upscale array four times to increase tuning accuracy
-    freq = upScale(upScale(upScale(upScale(freq))));
+    freq = upScale(freq, 4);
 
     // Determine the pitch of the note based on the frequency response
     frequencyOfNote = estimatePitch(freq);
@@ -56,7 +59,6 @@ function draw() {
     error = errorInPitch(frequencyOfNote, stringIndex, stringFrequencies);
     
     if (abs(error) > 0.1) {
-        console.log(error)
         cc = [abs(error)*1000,100,0];
         if (error > 0) {
             text('Too high', width / 2, height / 1.8);
@@ -76,7 +78,7 @@ function draw() {
 }
 
 function estimatePitch(freq) {
-    // Harmonic Product Spectrum
+    // Uses Harmonic Product Spectrum method
     let harmonicProducts = [];
     const BIN_50HZ = round(50 * freq.length / nyquist);
     const BIN_3000HZ = round(3000 * freq.length / nyquist);
@@ -105,7 +107,7 @@ function estimatePitch(freq) {
 
 
     indexOfNote = maxIndex;
-    if (max / 2 > octaveDown && octaveDown / max > 0.15) {
+    if (max / 2 > octaveDown && octaveDown / max > OCTAVE_ERROR_TOLERANCE) {
         indexOfNote /= 2;
     }
 
@@ -122,6 +124,14 @@ function upScale(arr) {
     }
 
     return upScaled;
+}
+
+function upScale(arr, n) {
+    while (n >= 1) {
+        arr = upScale(arr);
+        n--;
+    }
+    return arr;
 }
 
 function errorInPitch(frequency, string, stringFrequencies) {
