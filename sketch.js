@@ -20,26 +20,15 @@ function setup() {
 }
 
 function draw() {
-    scale(1, -1);
-    translate(0, -height);
-
     background(255);
 
+    // Perform FFT on input
     let freq = fft.analyze();
 
-    noFill();
-    stroke(128, 0, 255);
-    strokeWeight(2);
-
     // Plot the frequency response
-    beginShape();
-    vertex(0, freq[0] * height / 255);
-    for (let i = 0; i < freq.length; i += 16) {
-        let x = log(i)/log(2) * width / (log(freq.length)/log(2));
-        let y = freq[i] * height / 2 / 255;
-        vertex(x,y);
-    }
-    endShape();
+    scale(1, -1);
+    translate(0, -height);
+    spectrogram(freq);
 
     // Upscale array four times to increase tuning accuracy
     freq = upScale(freq, 4);
@@ -48,33 +37,29 @@ function draw() {
     frequencyOfNote = estimatePitch(freq);
 
     //Show the guess of which string is being played
-    stringIndex = guessString(frequencyOfNote, stringFrequencies);
     scale(1, -1);
     translate(0, -height);
-    textSize(24);
-    textAlign('center');
-    text("I think you are playing:", width / 2, height * 1/4);
-    text(stringName(stringIndex), width / 2, height / 3);
+    stringIndex = guessString(frequencyOfNote, stringFrequencies);
+    showStringGuess(stringIndex);
 
+    // Tell the user if they are too high or too low
     error = errorInPitch(frequencyOfNote, stringIndex, stringFrequencies);
-    
-    if (abs(error) > 0.1) {
-        cc = [abs(error)*1000,100,0];
-        if (error > 0) {
-            text('Too high', width / 2, height / 1.8);
-        } else {
-            text('Too low', width / 2, height / 1.8);
-        }
-    } else {
-        cc = [0, 220, 0];
-    }
+    giveHint(error);
+}
 
-    fill(cc);
-    stroke(cc);
-    textSize(48);
-    textAlign('center')
+function spectrogram(freq) {
+    noFill();
+    stroke(128, 0, 255);
     strokeWeight(2);
-    text(round(frequencyOfNote * 1000) / 1000 + ' Hz', width/2, height/2);
+
+    beginShape();
+    vertex(0, freq[0] * height / 255);
+    for (let i = 0; i < freq.length; i += 16) {
+        let x = log(i)/log(2) * width / (log(freq.length)/log(2));
+        let y = freq[i] * height / 2 / 255;
+        vertex(x,y);
+    }
+    endShape();
 }
 
 function estimatePitch(freq) {
@@ -105,7 +90,6 @@ function estimatePitch(freq) {
         }
     }
 
-
     indexOfNote = maxIndex;
     if (max / 2 > octaveDown && octaveDown / max > OCTAVE_ERROR_TOLERANCE) {
         indexOfNote /= 2;
@@ -114,7 +98,16 @@ function estimatePitch(freq) {
     return indexOfNote * nyquist / freq.length;
 }
 
-function upScale(arr) {
+function upScale(arr, n) {
+    n = n || 1;
+    while (n >= 1) {
+        arr = upScaleHelper(arr);
+        n--;
+    }
+    return arr;
+}
+
+function upScaleHelper(arr) {
     let upScaled = [arr[0]];
     
     for (let i = 1; i < arr.length; i++) {
@@ -124,14 +117,6 @@ function upScale(arr) {
     }
 
     return upScaled;
-}
-
-function upScale(arr, n) {
-    while (n >= 1) {
-        arr = upScale(arr);
-        n--;
-    }
-    return arr;
 }
 
 function errorInPitch(frequency, string, stringFrequencies) {
@@ -155,6 +140,31 @@ function guessString(frequency, stringFrequencies) {
 
 function stringName(string) {
     return stringNames[string];
+}
+
+function showStringGuess(stringIndex) {
+    textSize(24);
+    textAlign('center');
+    text("I think you are playing:", width / 2, height * 1/4);
+    text(stringName(stringIndex), width / 2, height / 3);
+}
+
+function giveHint(error) {
+    if (abs(error) > 0.2) {
+        cc = [abs(error)*500,100,0];
+        if (error > 0) {
+            text('Too high', width / 2, height / 1.8);
+        } else {
+            text('Too low', width / 2, height / 1.8);
+        }
+    } else {
+        cc = [0, 220, 0];
+    }
+    fill(cc);
+    stroke(cc);
+    textSize(48);
+    strokeWeight(2);
+    text(round(frequencyOfNote * 1000) / 1000 + ' Hz', width/2, height/2);
 }
 
 function windowResized() {
