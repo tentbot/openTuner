@@ -31,7 +31,7 @@ function draw() {
     // Plot the frequency response
     beginShape();
     vertex(0, freq[0] * height / 255);
-    for (let i = 0; i < freq.length; i += 8) {
+    for (let i = 0; i < freq.length; i += 16) {
         let x = log(i)/log(2) * width / (log(freq.length)/log(2));
         let y = freq[i] * height / 2 / 255;
         vertex(x,y);
@@ -45,18 +45,30 @@ function draw() {
     frequencyOfNote = estimatePitch(freq);
 
     //Show the guess of which string is being played
-    stringName = guessStringName(frequencyOfNote, stringFrequencies, stringNames);
+    stringIndex = guessString(frequencyOfNote, stringFrequencies);
     scale(1, -1);
     translate(0, -height);
     textSize(24);
     textAlign('center');
     text("I think you are playing:", width / 2, height * 1/4);
-    text(stringName, width / 2, height / 3);
+    text(stringName(stringIndex), width / 2, height / 3);
 
-    error = errorInPitch(frequencyOfNote,stringFrequencies);
+    error = errorInPitch(frequencyOfNote, stringIndex, stringFrequencies);
+    
+    if (abs(error) > 0.1) {
+        console.log(error)
+        cc = [abs(error)*1000,100,0];
+        if (error > 0) {
+            text('Too high', width / 2, height / 1.8);
+        } else {
+            text('Too low', width / 2, height / 1.8);
+        }
+    } else {
+        cc = [0, 220, 0];
+    }
 
-    // Show the frequency of the detected note
-    fill(128,0,255);
+    fill(cc);
+    stroke(cc);
     textSize(48);
     textAlign('center')
     strokeWeight(2);
@@ -91,13 +103,10 @@ function estimatePitch(freq) {
         }
     }
 
-    if (max === 0) {
-        indexOfNote = 0;
-    } else {
-        indexOfNote = maxIndex;
-        if (max / 2 > octaveDown && octaveDown / max > 0.15) {
-            indexOfNote /= 2;
-        }
+
+    indexOfNote = maxIndex;
+    if (max / 2 > octaveDown && octaveDown / max > 0.15) {
+        indexOfNote /= 2;
     }
 
     return indexOfNote * nyquist / freq.length;
@@ -115,11 +124,11 @@ function upScale(arr) {
     return upScaled;
 }
 
-function errorInPitch(frequency, stringFrequencies) {
-    let offSet = 0;
+function errorInPitch(frequency, string, stringFrequencies) {
+    return frequency - stringFrequencies[string];
 }
 
-function guessStringName(frequency, stringFrequencies, stringNames) {
+function guessString(frequency, stringFrequencies) {
     let maxErrorHz = 15;
     let guess = 0;
     
@@ -131,7 +140,11 @@ function guessStringName(frequency, stringFrequencies, stringNames) {
         }
     }
     
-    return stringNames[guess];
+    return guess;
+}
+
+function stringName(string) {
+    return stringNames[string];
 }
 
 function windowResized() {
