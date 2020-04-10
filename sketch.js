@@ -4,14 +4,14 @@ function setup() {
     input = new p5.AudioIn();
     input.start();
 
-    filter = new p5.HighPass();
-    filter.disconnect();
-    filter.freq(40);
+    // filter = new p5.HighPass();
+    // filter.disconnect();
+    // filter.freq(40);
 
-    filter.process(input);
+    // filter.process(input);
 
     fft = new p5.FFT(0.8,16384);
-    fft.setInput(filter);
+    fft.setInput(input);
 
 
     nyquist = sampleRate() / 2;
