@@ -4,15 +4,8 @@ function setup() {
     input = new p5.AudioIn();
     input.start();
 
-    // filter = new p5.HighPass();
-    // filter.disconnect();
-    // filter.freq(40);
-
-    // filter.process(input);
-
     fft = new p5.FFT(0.8,16384);
     fft.setInput(input);
-
 
     nyquist = sampleRate() / 2;
     
@@ -37,10 +30,14 @@ function draw() {
     vertex(0, freq[0] * height / 255);
     for (let i = 0; i < freq.length; i += 8) {
         let x = log(i)/log(2) * width / (log(freq.length)/log(2));
-        let y = freq[i] * height / 255;
+        let y = freq[i] * height / 2 / 255;
         vertex(x,y);
     }
     endShape();
+
+    // Upscale array to increase tuning accuracy
+    // console.log(freq.length);
+    freq = upScale(upScale(freq));
 
     // Harmonic Product Spectrum
     let harmonicProducts = [];
@@ -118,6 +115,16 @@ function draw() {
     if (guess >= 0) {
         text(stringNames[guess], width / 2, height * 1/3);
     }
+}
+
+function upScale(arr) {
+    let upScaled = [arr[0]];
+    for (let i = 1; i < arr.length; i++) {
+        average = (arr[i-1] + arr[i]) / 2;
+        upScaled.push(average);
+        upScaled.push(arr[i]);
+    }
+    return upScaled;
 }
 
 function windowResized() {
