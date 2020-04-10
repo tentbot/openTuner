@@ -1,10 +1,18 @@
-let input, fft, nyquist;
+let input, filter, fft, nyquist;
 
 function setup() {
     input = new p5.AudioIn();
     input.start();
+
+    filter = new p5.HighPass();
+    filter.disconnect();
+    filter.freq(40);
+
+    filter.process(input);
+
     fft = new p5.FFT(0.8,16384);
-    fft.setInput(input);
+    fft.setInput(filter);
+
 
     nyquist = sampleRate() / 2;
     
@@ -27,30 +35,12 @@ function draw() {
     // Plot the frequency response
     beginShape();
     vertex(0, freq[0] * height / 255);
-    for (let i = 0; i < freq.length; i++) {
+    for (let i = 0; i < freq.length; i += 8) {
         let x = log(i)/log(2) * width / (log(freq.length)/log(2));
         let y = freq[i] * height / 255;
         vertex(x,y);
     }
     endShape();
-
-    // strokeWeight(0.5);
-    // for (let i = 0; i < freq.length; i += 2) {
-    //     let x = log(i)/log(2) * width / (log(freq.length)/log(2));
-    //     line(x, height / 3, x, height / 6);
-    // }
-
-    // Method: Find peak frequency
-    // let maxVal = freq[0];
-    // let maxIndex = 0;
-    
-    // for (i = 0; i < freq.length; i++) {
-    //     let currentAmp = freq[i];
-    //     if (currentAmp > maxVal) {
-    //         maxVal = currentAmp;
-    //         maxIndex = i;
-    //     }
-    // }
 
     // Harmonic Product Spectrum
     let harmonicProducts = [];
@@ -76,7 +66,6 @@ function draw() {
                 harmonicProducts[index] *= freq[r * omega];
             }
         }
-        
         // Find maximum and second-maximum harmonic product
         if (harmonicProducts[index] > firstMax) {
             secondMax = firstMax;
@@ -91,7 +80,6 @@ function draw() {
 
         index++;
     }
-    console.log(harmonicProducts);
 
     if (firstMax === 0) {
         indexOfNote = 0;
@@ -101,13 +89,35 @@ function draw() {
         indexOfNote = firstMaxIndex;
     }
 
+    // Show the frequency of the detected note
     scale(1, -1);
     translate(0, -height);
+    fill(128,0,255);
     textSize(48);
     textAlign('center')
     strokeWeight(2);
     frequency = indexOfNote * nyquist / freq.length;
     text(round(frequency * 1000) / 1000 + ' Hz', width/2, height/2);
+
+    //Show the guess of which string is being played
+    let stringFrequencies = [82.41, 110, 146.8, 196, 246.9, 329.6];
+    let stringNames       = ['E', 'A', 'D', 'G', 'B', 'e'];
+    let maxError = 20;
+    let guess = -1;
+    for (let i = 0; i < stringFrequencies.length; i++) {
+        error = abs(frequency - stringFrequencies[i]);
+        if (error < maxError) {
+            guess = i;
+            maxError = error;
+        }
+    }
+
+    textSize(24);
+    textAlign('center');
+    text("I think you are playing: ", width / 2, height * 1/4)
+    if (guess >= 0) {
+        text(stringNames[guess], width / 2, height * 1/3);
+    }
 }
 
 function windowResized() {
