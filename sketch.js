@@ -1,5 +1,8 @@
 let input, filter, fft, nyquist;
 
+let stringFrequencies = [82.41, 110.00, 146.83, 196.00, 246.94, 329.63];
+let stringNames = ['?', 'E', 'A', 'D', 'G', 'B', 'e'];
+
 function setup() {
     input = new p5.AudioIn();
     input.start();
@@ -35,56 +38,11 @@ function draw() {
     }
     endShape();
 
-    // Upscale array to increase tuning accuracy
-    // console.log(freq.length);
+    // Upscale array twice to increase tuning accuracy
     freq = upScale(upScale(freq));
 
-    // Harmonic Product Spectrum
-    let harmonicProducts = [];
-    let index = 0;
-    const BIN_50HZ = round(50 * freq.length / nyquist);
-    const BIN_3000HZ = round(3000 * freq.length / nyquist);
-    let firstMax = -1;
-    let secondMax = -1;
-    let firstMaxIndex = 0;
-    let secondMaxIndex = 0;
-
-    // TODO: If the second peak amplitude occurs at approximately half of the chosen pitch
-    // AND the ratio of amplitudes is above a threshold, choose the lower pitch
-
-    // omega = index of frequency of note
-    for (let omega = BIN_50HZ; omega < BIN_3000HZ; omega++) {
-        // r = harmonics being considered
-        for (let r = 1; r <= 5; r++) {
-            // Get the product of harmonics
-            if (r === 1) {
-                harmonicProducts[index] = freq[omega];
-            } else if (r * omega < freq.length && freq[r * omega] !== 0) {
-                harmonicProducts[index] *= freq[r * omega];
-            }
-        }
-        // Find maximum and second-maximum harmonic product
-        if (harmonicProducts[index] > firstMax) {
-            secondMax = firstMax;
-            secondMaxIndex = firstMaxIndex;
-
-            firstMax = harmonicProducts[index];
-            firstMaxIndex = omega;
-        } else if (harmonicProducts[index] > secondMax) {
-            secondMax = harmonicProducts[index];
-            secondMaxIndex = omega;
-        }
-
-        index++;
-    }
-
-    if (firstMax === 0) {
-        indexOfNote = 0;
-    } else if (secondMaxIndex / firstMaxIndex - 0.5 < 0.05) {
-        indexOfNote = secondMaxIndex;
-    } else {
-        indexOfNote = firstMaxIndex;
-    }
+    // Determine the pitch of the note based on the frequency response
+    frequencyOfNote = estimatePitch(freq);
 
     // Show the frequency of the detected note
     scale(1, -1);
@@ -93,38 +51,91 @@ function draw() {
     textSize(48);
     textAlign('center')
     strokeWeight(2);
-    frequency = indexOfNote * nyquist / freq.length;
-    text(round(frequency * 1000) / 1000 + ' Hz', width/2, height/2);
+    
+    text(round(frequencyOfNote * 1000) / 1000 + ' Hz', width/2, height/2);
 
     //Show the guess of which string is being played
-    let stringFrequencies = [82.41, 110, 146.8, 196, 246.9, 329.6];
-    let stringNames       = ['E', 'A', 'D', 'G', 'B', 'e'];
-    let maxError = 20;
-    let guess = -1;
-    for (let i = 0; i < stringFrequencies.length; i++) {
-        error = abs(frequency - stringFrequencies[i]);
-        if (error < maxError) {
-            guess = i;
-            maxError = error;
-        }
-    }
+    stringName = guessStringName(frequencyOfNote, stringFrequencies, stringNames);
 
     textSize(24);
-    textAlign('center');
-    text("I think you are playing: ", width / 2, height * 1/4)
-    if (guess >= 0) {
-        text(stringNames[guess], width / 2, height * 1/3);
-    }
+    textAlign('left');
+    text("I think you are playing:\t" + stringName, width / 4, height * 1/4)
+}
+
+function estimatePitch(freq) {
+        // Harmonic Product Spectrum
+        let harmonicProducts = [];
+        let index = 0;
+        const BIN_50HZ = round(50 * freq.length / nyquist);
+        const BIN_3000HZ = round(3000 * freq.length / nyquist);
+        let firstMax = -1;
+        let secondMax = -1;
+        let firstMaxIndex = 0;
+        let secondMaxIndex = 0;
+    
+        // omega = index of frequency of note
+        for (let omega = BIN_50HZ; omega < BIN_3000HZ; omega++) {
+            // r = harmonics being considered
+            for (let r = 1; r <= 5; r++) {
+                // Get the product of harmonics
+                if (r === 1) {
+                    harmonicProducts[index] = freq[omega];
+                } else if (r * omega < freq.length && freq[r * omega] !== 0) {
+                    harmonicProducts[index] *= freq[r * omega];
+                }
+            }
+            // Find maximum and second-maximum harmonic product
+            if (harmonicProducts[index] > firstMax) {
+                secondMax = firstMax;
+                secondMaxIndex = firstMaxIndex;
+    
+                firstMax = harmonicProducts[index];
+                firstMaxIndex = omega;
+            } else if (harmonicProducts[index] > secondMax) {
+                secondMax = harmonicProducts[index];
+                secondMaxIndex = omega;
+            }
+    
+            index++;
+        }
+    
+        if (firstMax === 0) {
+            indexOfNote = 0;
+        } else if (secondMaxIndex / firstMaxIndex - 0.5 <= 0.05
+            && secondMax / firstMax > 0.2) {
+            indexOfNote = secondMaxIndex;
+        } else {
+            indexOfNote = firstMaxIndex;
+        }
+
+        return indexOfNote * nyquist / freq.length;
 }
 
 function upScale(arr) {
     let upScaled = [arr[0]];
+    
     for (let i = 1; i < arr.length; i++) {
         average = (arr[i-1] + arr[i]) / 2;
         upScaled.push(average);
         upScaled.push(arr[i]);
     }
+
     return upScaled;
+}
+
+function guessStringName(frequency, stringFrequencies, stringNames) {
+    let maxErrorHz = 15;
+    let guess = 0;
+    
+    for (let i = 1; i < stringFrequencies.length; i++) {
+        error = abs(frequency - stringFrequencies[i]);
+        if (error < maxErrorHz) {
+            guess = i;
+            maxError = error;
+        }
+    }
+    
+    return stringNames[guess];
 }
 
 function windowResized() {
