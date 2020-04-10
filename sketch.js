@@ -1,9 +1,12 @@
 const FREQUENCY_BINS = 16384;
+const UPSCALE = 5;
 const OCTAVE_ERROR_TOLERANCE = 0.15;
+
+const THEME_COLOUR = [0, 128, 255];
 
 let input, filter, fft, nyquist;
 
-let stringFrequencies = [0, 82.41, 110.00, 146.83, 196.00, 246.94, 329.63];
+let stringFrequencies = [0, 82.407, 110, 146.832, 196, 246.942, 329.628];
 let stringNames = ['?', 'E', 'A', 'D', 'G', 'B', 'e'];
 
 function setup() {
@@ -20,7 +23,7 @@ function setup() {
 }
 
 function draw() {
-    background(255);
+    background(0);
 
     // Perform FFT on input
     let freq = fft.analyze();
@@ -30,8 +33,8 @@ function draw() {
     translate(0, -height);
     spectrogram(freq);
 
-    // Upscale array four times to increase tuning accuracy
-    freq = upScale(freq, 4);
+    // Upscale array to increase tuning accuracy
+    freq = upScale(freq, UPSCALE);
 
     // Determine the pitch of the note based on the frequency response
     frequencyOfNote = estimatePitch(freq);
@@ -49,7 +52,7 @@ function draw() {
 
 function spectrogram(freq) {
     noFill();
-    stroke(128, 0, 255);
+    stroke(THEME_COLOUR);
     strokeWeight(2);
 
     beginShape();
@@ -60,6 +63,27 @@ function spectrogram(freq) {
         vertex(x,y);
     }
     endShape();
+}
+
+function upScale(arr, n) {
+    n = n || 1;
+    while (n >= 1) {
+        arr = upScaleHelper(arr);
+        n--;
+    }
+    return arr;
+}
+
+function upScaleHelper(arr) {
+    let upScaled = [arr[0]];
+    
+    for (let i = 1; i < arr.length; i++) {
+        average = (arr[i-1] + arr[i]) / 2;
+        upScaled.push(average);
+        upScaled.push(arr[i]);
+    }
+
+    return upScaled;
 }
 
 function estimatePitch(freq) {
@@ -98,31 +122,6 @@ function estimatePitch(freq) {
     return indexOfNote * nyquist / freq.length;
 }
 
-function upScale(arr, n) {
-    n = n || 1;
-    while (n >= 1) {
-        arr = upScaleHelper(arr);
-        n--;
-    }
-    return arr;
-}
-
-function upScaleHelper(arr) {
-    let upScaled = [arr[0]];
-    
-    for (let i = 1; i < arr.length; i++) {
-        average = (arr[i-1] + arr[i]) / 2;
-        upScaled.push(average);
-        upScaled.push(arr[i]);
-    }
-
-    return upScaled;
-}
-
-function errorInPitch(frequency, string, stringFrequencies) {
-    return frequency - stringFrequencies[string];
-}
-
 function guessString(frequency, stringFrequencies) {
     let maxErrorHz = 15;
     let guess = 0;
@@ -138,20 +137,33 @@ function guessString(frequency, stringFrequencies) {
     return guess;
 }
 
-function stringName(string) {
-    return stringNames[string];
-}
-
 function showStringGuess(stringIndex) {
     textSize(24);
     textAlign('center');
     text("I think you are playing:", width / 2, height * 1/4);
     text(stringName(stringIndex), width / 2, height / 3);
+    text(stringFrequencies[stringIndex] + " Hz", width / 2, height / 2.5);
+}
+
+function stringName(string) {
+    return stringNames[string];
+}
+
+function errorInPitch(frequency, string, stringFrequencies) {
+    return frequency - stringFrequencies[string];
 }
 
 function giveHint(error) {
     if (abs(error) > 0.2) {
-        cc = [abs(error)*500,100,0];
+        // If error is huge, just show as red
+        // else, colour it depending on the error
+        if (abs(error) > 1) {
+            cc = [255, 0, 0];
+        } else {
+            cc = [abs(error)*500,150,0];
+        }
+
+        // Check if error is positive or negative
         if (error > 0) {
             text('Too high', width / 2, height / 1.8);
         } else {
