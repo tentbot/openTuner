@@ -1,6 +1,6 @@
 const FREQUENCY_BINS = 16384;
-const UPSCALE = 5;
 const OCTAVE_ERROR_TOLERANCE = 0.15;
+const LARGE_ERROR_COLOUR = [255, 0, 0];
 
 const THEME_COLOUR = [0, 128, 255];
 
@@ -34,7 +34,7 @@ function draw() {
     spectrogram(freq);
 
     // Upscale array to increase tuning accuracy
-    freq = upScale(freq, UPSCALE);
+    freq = upScale(freq);
 
     // Determine the pitch of the note based on the frequency response
     frequencyOfNote = estimatePitch(freq);
@@ -65,22 +65,14 @@ function spectrogram(freq) {
     endShape();
 }
 
-function upScale(arr, n) {
-    n = n || 1;
-    while (n >= 1) {
-        arr = upScaleHelper(arr);
-        n--;
-    }
-    return arr;
-}
-
-function upScaleHelper(arr) {
+function upScale(arr) {
     let upScaled = [arr[0]];
-    
+
     for (let i = 1; i < arr.length; i++) {
-        average = (arr[i-1] + arr[i]) / 2;
-        upScaled.push(average);
-        upScaled.push(arr[i]);
+        diff = arr[i-1]-arr[i];
+        upScaled.push(arr[i]+diff*1/3);
+        upScaled.push(arr[i]+diff*2/3);
+        upScale.push(arr[i]);
     }
 
     return upScaled;
@@ -89,11 +81,11 @@ function upScaleHelper(arr) {
 function estimatePitch(freq) {
     // Uses Harmonic Product Spectrum method
     let harmonicProducts = [];
-    const BIN_50HZ = round(50 * freq.length / nyquist);
-    const BIN_3000HZ = round(3000 * freq.length / nyquist);
+    let BIN_50HZ = round(50 * freq.length / nyquist);
+    let BIN_3000HZ = round(3000 * freq.length / nyquist);
     let max = -1;
     let maxIndex = 0;
-    let octaveDown = 0;
+    let octaveBelow = 0;
 
     // omega = index of frequency of note
     for (let omega = BIN_50HZ; omega < BIN_3000HZ; omega++) {
@@ -110,12 +102,12 @@ function estimatePitch(freq) {
         if (harmonicProducts[omega] > max) {
             max = harmonicProducts[omega];
             maxIndex = omega;
-            octaveDown = harmonicProducts[round(omega / 2)];
+            octaveBelow = harmonicProducts[round(omega / 2)];
         }
     }
 
     indexOfNote = maxIndex;
-    if (max / 2 > octaveDown && octaveDown / max > OCTAVE_ERROR_TOLERANCE) {
+    if (max / 2 > octaveBelow && octaveBelow / max > OCTAVE_ERROR_TOLERANCE) {
         indexOfNote /= 2;
     }
 
@@ -158,7 +150,7 @@ function giveHint(error) {
         // If error is huge, just show as red
         // else, colour it depending on the error
         if (abs(error) > 1) {
-            cc = [255, 0, 0];
+            cc = LARGE_ERROR_COLOUR;
         } else {
             cc = [abs(error)*500,150,0];
         }
