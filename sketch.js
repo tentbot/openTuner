@@ -72,7 +72,7 @@ function upScale(arr) {
         diff = arr[i-1]-arr[i];
         upScaled.push(arr[i]+diff*1/3);
         upScaled.push(arr[i]+diff*2/3);
-        upScale.push(arr[i]);
+        upScaled.push(arr[i]);
     }
 
     return upScaled;
