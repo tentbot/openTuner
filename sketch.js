@@ -1,7 +1,7 @@
 const FREQUENCY_BINS = 16384;
 const OCTAVE_ERROR_TOLERANCE = 0.15;
+const LARGE_ERROR = 2;
 const LARGE_ERROR_COLOUR = [255, 0, 0];
-
 const THEME_COLOUR = [0, 128, 255];
 
 let input, filter, fft, nyquist;
@@ -17,9 +17,8 @@ function setup() {
     fft.setInput(input);
 
     nyquist = sampleRate() / 2;
-    
-    c = createCanvas(windowWidth, windowHeight);
-    c.parent('canvasDiv');
+
+    createCanvas(windowWidth, windowHeight);
 }
 
 function draw() {
@@ -117,7 +116,7 @@ function estimatePitch(freq) {
 function guessString(frequency, stringFrequencies) {
     let maxErrorHz = 15;
     let guess = 0;
-    
+
     for (let i = 1; i < stringFrequencies.length; i++) {
         error = abs(frequency - stringFrequencies[i]);
         if (error < maxErrorHz) {
@@ -125,7 +124,7 @@ function guessString(frequency, stringFrequencies) {
             maxError = error;
         }
     }
-    
+
     return guess;
 }
 
@@ -149,10 +148,10 @@ function giveHint(error) {
     if (abs(error) > 0.2) {
         // If error is huge, just show as red
         // else, colour it depending on the error
-        if (abs(error) > 1) {
+        if (abs(error) >= LARGE_ERROR) {
             cc = LARGE_ERROR_COLOUR;
         } else {
-            cc = [abs(error)*500,150,0];
+            cc = [abs(error)*255,150,0];
         }
 
         // Check if error is positive or negative
