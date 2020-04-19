@@ -1,7 +1,9 @@
 const FREQUENCY_BINS = 16384;
 const OCTAVE_ERROR_TOLERANCE = 0.15;
-const LARGE_ERROR = 2;
+const LARGE_ERROR = 5;
 const LARGE_ERROR_COLOUR = [255, 0, 0];
+const SMALL_ERROR = 0.3;
+const SMALL_ERROR_COLOUR = [0, 220, 0];
 const THEME_COLOUR = [0, 128, 255];
 
 let input, filter, fft, nyquist;
@@ -13,10 +15,10 @@ function setup() {
     input = new p5.AudioIn();
     input.start();
 
-    fft = new p5.FFT(0.8,FREQUENCY_BINS);
+    fft = new p5.FFT(0.8, FREQUENCY_BINS);
     fft.setInput(input);
 
-    nyquist = sampleRate() / 2;
+    nyquist = sampleRate()/2;
 
     createCanvas(windowWidth, windowHeight);
 }
@@ -33,7 +35,7 @@ function draw() {
     spectrogram(freq);
 
     // Upscale array to increase tuning accuracy
-    freq = upScale(freq);
+    freq = upScale(freq, 6);
 
     // Determine the pitch of the note based on the frequency response
     frequencyOfNote = estimatePitch(freq);
@@ -44,10 +46,15 @@ function draw() {
     stringIndex = guessString(frequencyOfNote, stringFrequencies);
     showStringGuess(stringIndex);
 
-    // Tell the user if they are too high or too low
+    // Tell the user if they are too high or too low using visual and
+    // textual feedback
     error = errorInPitch(frequencyOfNote, stringIndex, stringFrequencies);
-    giveHint(error);
+    colour = getColourFromError(error);
+    giveHint(error, colour);
+    errorBar(error, colour);
 }
+
+
 
 function spectrogram(freq) {
     noFill();
@@ -57,21 +64,21 @@ function spectrogram(freq) {
     beginShape();
     vertex(0, freq[0] * height / 255);
     for (let i = 0; i < freq.length; i += 16) {
-        let x = log(i)/log(2) * width / (log(freq.length)/log(2));
+        let x = (log(i)/log(2)) * width / (log(freq.length)/log(2));
         let y = freq[i] * height / 2 / 255;
         vertex(x,y);
     }
     endShape();
 }
 
-function upScale(arr) {
+function upScale(arr, n) {
     let upScaled = [arr[0]];
 
     for (let i = 1; i < arr.length; i++) {
-        diff = arr[i-1]-arr[i];
-        upScaled.push(arr[i]+diff*1/3);
-        upScaled.push(arr[i]+diff*2/3);
-        upScaled.push(arr[i]);
+        let diff = arr[i-1]-arr[i];
+        for (let j = 0; j <= n; j++) {
+            upScaled.push(arr[i]+diff*j/n);
+        }
     }
 
     return upScaled;
@@ -97,7 +104,6 @@ function estimatePitch(freq) {
                 harmonicProducts[omega] *= freq[r * omega];
             }
         }
-        // Find maximum and second-maximum harmonic product
         if (harmonicProducts[omega] > max) {
             max = harmonicProducts[omega];
             maxIndex = omega;
@@ -144,16 +150,18 @@ function errorInPitch(frequency, string, stringFrequencies) {
     return frequency - stringFrequencies[string];
 }
 
-function giveHint(error) {
-    if (abs(error) > 0.2) {
-        // If error is huge, just show as red
-        // else, colour it depending on the error
-        if (abs(error) >= LARGE_ERROR) {
-            cc = LARGE_ERROR_COLOUR;
-        } else {
-            cc = [abs(error)*255,150,0];
-        }
+function getColourFromError(error) {
+    if (abs(error) >= LARGE_ERROR) {
+        colour = LARGE_ERROR_COLOUR;
+    } else {
+        colour = [abs(error)*255,150,0];
+    }
+    
+    return colour;
+}
 
+function giveHint(error, colour) {
+    if (abs(error) > SMALL_ERROR) {
         // Check if error is positive or negative
         if (error > 0) {
             text('Too high', width / 2, height / 1.8);
@@ -161,15 +169,30 @@ function giveHint(error) {
             text('Too low', width / 2, height / 1.8);
         }
     } else {
-        cc = [0, 220, 0];
+        colour = SMALL_ERROR_COLOUR;
     }
-    fill(cc);
-    stroke(cc);
+
+    fill(colour);
+    stroke(colour);
     textSize(48);
     strokeWeight(2);
     text(round(frequencyOfNote * 1000) / 1000 + ' Hz', width/2, height/2);
 }
 
+function errorBar(error, colour) {
+    fill(colour);
+    stroke(colour);
+    strokeWeight(8);
+
+    let x = width/2;
+    if (abs(error) > SMALL_ERROR) {
+        x = map(error, -LARGE_ERROR, LARGE_ERROR, 0, width);
+    }
+    
+    line(x, height*3/5, x, height);
+}
+
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
 }
+
